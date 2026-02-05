@@ -1,9 +1,12 @@
 import datetime
 import itertools
+import logging
+import time
+import warnings
 import xml.etree.ElementTree as xml
-from collections.abc import Generator
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 import requests
 
@@ -13,6 +16,8 @@ from .helpers import batches
 
 # Base url for all queries
 BASE_URL = "https://eutils.ncbi.nlm.nih.gov"
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -74,7 +79,9 @@ class PubMed:
     email: str = "my_email@example.com"
     # Keep track of the rate limit
     _rate_limit: int = 3
-    _requests_made: list[float] = field(default_factory=list)
+    _requests_made: list[datetime.datetime] = field(default_factory=list)
+    timeout: float = 30.0
+    _session: requests.Session | None = field(default=None, init=False, repr=False)
     parameters: dict[str, Any] = field(
         default_factory=lambda: {
             "tool": "my_tool",
@@ -83,20 +90,29 @@ class PubMed:
         }
     )
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.parameters["tool"] = self.tool
         self.parameters["email"] = self.email
 
-    def query(self, query: str, max_results: int = 100):
-        """
-        Executes a query against PubMed and retrieves articles.
+    def _get_session(self) -> requests.Session:
+        if self._session is None:
+            self._session = requests.Session()
+        return self._session
+
+    def query(
+        self, query: str, max_results: int = 100
+    ) -> Iterator[PubMedArticle | PubMedBookArticle]:
+        """Execute a PubMed query and return matching records.
 
         Args:
-            query (str): The query string.
-            max_results (int): Maximum number of results to retrieve.
+            query: PubMed query string.
+            max_results: Maximum number of results to retrieve.
 
         Returns:
-            Iterator of articles.
+            An iterator of PubMedArticle and PubMedBookArticle instances.
+
+        Raises:
+            ValueError: If the query string is empty.
         """
         if query == "":
             raise ValueError("The query string cannot be empty.")
@@ -113,17 +129,13 @@ class PubMed:
         return itertools.chain.from_iterable(articles)
 
     def get_total_results_count(self, query: str) -> int:
-        """
-        Return the total number of results that match the query.
+        """Return the total number of results that match a query.
 
-        Parameters
-        ----------
-            - query String, the query to send to PubMed
+        Args:
+            query: PubMed query string.
 
-        Returns
-        -------
-            - total_results_count   Int, total number of results for the query in PubMed
-
+        Returns:
+            Total number of results available for the query.
         """
         # Get the default parameters
         parameters = self.parameters.copy()
@@ -138,9 +150,22 @@ class PubMed:
         # Get from the returned meta data the total number
         # of available results for the query
         if isinstance(response, dict):
-            return int(response.get("esearchresult", {}).get("count"))
-        else:
-            return 0
+            count = response.get("esearchresult", {}).get("count")
+            try:
+                return int(count)
+            except (TypeError, ValueError):
+                logger.warning("Failed to parse total result count", exc_info=True)
+                return 0
+        return 0
+
+    def getTotalResultsCount(self, query: str) -> int:
+        """Deprecated alias for get_total_results_count."""
+        warnings.warn(
+            "getTotalResultsCount is deprecated; use get_total_results_count instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.get_total_results_count(query)
 
     def _exceeded_rate_limit(self) -> bool:
         """
@@ -159,7 +184,7 @@ class PubMed:
 
         # Return whether we've made more requests in the last second,
         # than the rate limit
-        return len(self._requests_made) > self._rate_limit
+        return len(self._requests_made) >= self._rate_limit
 
     def _get(
         self, url: str, parameters: dict[str, Any], output: str = "json"
@@ -184,14 +209,16 @@ class PubMed:
         """
         # Make sure the rate limit is not exceeded
         while self._exceeded_rate_limit():
-            pass
+            logger.debug("Rate limit exceeded; sleeping")
+            time.sleep(0.1)
 
         # Set the response mode
         parameters["retmode"] = output
 
         # Make the request to PubMed
-        response: requests.Response = requests.get(
-            f"{BASE_URL}{url}", params=parameters
+        session = self._get_session()
+        response: requests.Response = session.get(
+            f"{BASE_URL}{url}", params=parameters, timeout=self.timeout
         )
 
         # Check for any errors
@@ -202,10 +229,16 @@ class PubMed:
 
         # Return the response
         if output == "json":
-            return response.json()
+            try:
+                return response.json()
+            except ValueError:
+                logger.warning("Failed to decode JSON response", exc_info=True)
+                return {}
         return response.text
 
-    def _get_articles(self, article_ids: list) -> Generator:
+    def _get_articles(
+        self, article_ids: list[str]
+    ) -> Iterator[PubMedArticle | PubMedBookArticle]:
         """
         Helper method that batches a list of article IDs and retrieves the content.
 
@@ -218,9 +251,12 @@ class PubMed:
             - articles      List, article objects.
 
         """
+        if not article_ids:
+            return
+
         # Get the default parameters
         parameters = self.parameters.copy()
-        parameters["id"] = article_ids
+        parameters["id"] = ",".join(article_ids)
 
         # Make the request
         response = self._get(
@@ -228,7 +264,8 @@ class PubMed:
         )
 
         # Parse as XML
-        root = xml.fromstring(response)
+        response_text = cast(str, response)
+        root = xml.fromstring(response_text)
 
         # Loop over the articles and construct article objects
         for article in root.iter("PubmedArticle"):
@@ -236,7 +273,7 @@ class PubMed:
         for book in root.iter("PubmedBookArticle"):
             yield PubMedBookArticle(xml_element=book)
 
-    def _get_article_ids(self, query: str, max_results: int) -> list:
+    def _get_article_ids(self, query: str, max_results: int) -> list[str]:
         """
         Helper method to retrieve the article IDs for a query.
 
@@ -261,18 +298,31 @@ class PubMed:
         parameters["retmax"] = 50000
 
         # Calculate a cut off point based on the max_results parameter
-        if max_results < parameters["retmax"]:
+        if max_results != -1 and max_results < parameters["retmax"]:
             parameters["retmax"] = max_results
 
         # Make the first request to PubMed
         response = self._get(url="/entrez/eutils/esearch.fcgi", parameters=parameters)
 
-        # Add the retrieved IDs to the list
-        if isinstance(response, dict):
-            article_ids += response.get("esearchresult", {}).get("idlist", [])
-            # Get information from the response
-            total_result_count = int(response.get("esearchresult", {}).get("count"))
-            retrieved_count = int(response.get("esearchresult", {}).get("retmax"))
+        if not isinstance(response, dict):
+            logger.warning("Unexpected response type for esearch")
+            return []
+
+        esearch = response.get("esearchresult", {})
+        article_ids += esearch.get("idlist", [])
+        # Get information from the response
+        try:
+            total_result_count = int(esearch.get("count", 0))
+        except (TypeError, ValueError):
+            logger.warning("Failed to parse total result count", exc_info=True)
+            total_result_count = 0
+        try:
+            retrieved_count = int(esearch.get("retmax", 0))
+        except (TypeError, ValueError):
+            logger.warning("Failed to parse retrieved count", exc_info=True)
+            retrieved_count = 0
+        if retrieved_count <= 0:
+            retrieved_count = len(article_ids)
 
         # If no max is provided (-1) we'll try to retrieve everything
         if max_results == -1:
@@ -293,11 +343,23 @@ class PubMed:
                 url="/entrez/eutils/esearch.fcgi", parameters=parameters
             )
 
-            if isinstance(response, dict):
-                # Add the retrieved IDs to the list
-                article_ids += response.get("esearchresult", {}).get("idlist", [])
-                # Get information from the response
-                retrieved_count += int(response.get("esearchresult", {}).get("retmax"))
+            if not isinstance(response, dict):
+                logger.warning("Unexpected response type for esearch")
+                break
+
+            esearch = response.get("esearchresult", {})
+            # Add the retrieved IDs to the list
+            article_ids += esearch.get("idlist", [])
+            # Get information from the response
+            try:
+                page_count = int(esearch.get("retmax", 0))
+            except (TypeError, ValueError):
+                logger.warning("Failed to parse retrieved count", exc_info=True)
+                break
+            if page_count <= 0:
+                logger.warning("Retrieved count was zero; stopping pagination")
+                break
+            retrieved_count += page_count
 
         # Return the response
         return article_ids
