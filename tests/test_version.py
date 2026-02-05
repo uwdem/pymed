@@ -11,6 +11,6 @@ def test_version_falls_back_when_metadata_missing(monkeypatch):
     monkeypatch.setattr(importlib.metadata, "version", raise_not_found)
 
     reloaded = importlib.reload(version_module)
-    assert reloaded.__version__ == "0.8.9"
+    assert reloaded.__version__ == "0.9.0"
 
     importlib.reload(version_module)
