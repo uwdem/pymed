@@ -1,0 +1,11 @@
+{
+  "esearchresult": {
+    "count": "3",
+    "retmax": "2",
+    "retstart": "0",
+    "idlist": ["111", "222"],
+    "translationset": [],
+    "translationstack": [],
+    "querytranslation": "occupational health[Title]"
+  }
+}

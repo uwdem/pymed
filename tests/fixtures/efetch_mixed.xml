@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PubmedArticleSet>
+  <PubmedArticle>
+    <MedlineCitation>
+      <PMID>123456</PMID>
+      <Article>
+        <ArticleTitle>Test Article Title</ArticleTitle>
+        <Abstract>
+          <AbstractText>Test abstract body.</AbstractText>
+          <AbstractText Label="METHOD">Test methods.</AbstractText>
+          <AbstractText Label="RESULTS">Test results.</AbstractText>
+          <AbstractText Label="CONCLUSION">Test conclusions.</AbstractText>
+        </Abstract>
+        <Journal>
+          <Title>Test Journal</Title>
+        </Journal>
+        <AuthorList>
+          <Author>
+            <LastName>Smith</LastName>
+            <ForeName>Jane</ForeName>
+            <Initials>J</Initials>
+            <AffiliationInfo>
+              <Affiliation>Example University</Affiliation>
+            </AffiliationInfo>
+          </Author>
+        </AuthorList>
+      </Article>
+      <KeywordList>
+        <Keyword>alpha</Keyword>
+        <Keyword>beta</Keyword>
+      </KeywordList>
+      <PubMedPubDate PubStatus="pubmed">
+        <Year>2020</Year>
+        <Month>12</Month>
+        <Day>25</Day>
+      </PubMedPubDate>
+    </MedlineCitation>
+    <PubmedData>
+      <ArticleIdList>
+        <ArticleId IdType="pubmed">123456</ArticleId>
+        <ArticleId IdType="doi">10.1000/test.doi</ArticleId>
+      </ArticleIdList>
+    </PubmedData>
+    <CopyrightInformation>Test copyright</CopyrightInformation>
+  </PubmedArticle>
+  <PubmedBookArticle>
+    <BookDocument>
+      <Book>
+        <BookTitle>Test Book Title</BookTitle>
+        <Publisher>
+          <PublisherName>Test Publisher</PublisherName>
+          <PublisherLocation>Test City</PublisherLocation>
+        </Publisher>
+      </Book>
+      <ArticleTitle>Book Chapter Title</ArticleTitle>
+      <Abstract>
+        <AbstractText>Book abstract.</AbstractText>
+      </Abstract>
+      <Isbn>9780123456789</Isbn>
+      <Language>eng</Language>
+      <PublicationType>Book</PublicationType>
+      <PubDate>
+        <Year>2019</Year>
+      </PubDate>
+      <AuthorList>
+        <Author>
+          <LastName>Doe</LastName>
+          <ForeName>John</ForeName>
+          <Initials>J</Initials>
+          <CollectiveName>Example Group</CollectiveName>
+        </Author>
+      </AuthorList>
+      <Section>
+        <SectionTitle>Section One</SectionTitle>
+        <LocationLabel>1</LocationLabel>
+      </Section>
+    </BookDocument>
+    <PubmedData>
+      <ArticleIdList>
+        <ArticleId IdType="pubmed">654321</ArticleId>
+        <ArticleId IdType="doi">10.1000/book.doi</ArticleId>
+      </ArticleIdList>
+    </PubmedData>
+    <CopyrightInformation>Book copyright</CopyrightInformation>
+  </PubmedBookArticle>
+</PubmedArticleSet>

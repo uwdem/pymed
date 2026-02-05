@@ -1,12 +1,11 @@
 from pymed import PubMed
 
-
-# Create a PubMed object that GraphQL can use to query
+# Create a PubMed object for querying
 # Note that the parameters are not required but kindly requested by PubMed Central
 # https://www.ncbi.nlm.nih.gov/pmc/tools/developers/
 pubmed = PubMed(tool="MyTool", email="my@email.address")
 
-# Create a GraphQL query in plain text
+# Create a query in plain text
 query = "occupational health[Title]"
 
 
@@ -15,8 +14,8 @@ results = pubmed.query(query, max_results=500)
 
 # Loop over the retrieved articles
 for article in results:
-
-    # Print the type of object we've found (can be either PubMedBookArticle or PubMedArticle)
+    # Print the type of object we've found
+    # (can be either PubMedBookArticle or PubMedArticle)
     print(type(article))
 
     # Print a JSON representation of the object

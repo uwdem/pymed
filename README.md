@@ -1,10 +1,23 @@
-> IMPORTANT NOTE: I don't have time to maintain this library (as some of you might have noticed). The PubMed API is a little chaotic, without a clear documentation and no single way of doing things, making it almost impossible to create a proper library. Feel free to create a fork or use the code for your own projects, however, I will archive this repository. Thanks to all contributers and users!
+> Status: This project is actively being modernized; see `MODERNIZATION_PLAN.md` for the roadmap.
 
 # PyMed - PubMed Access through Python
 PyMed is a Python library that provides access to PubMed through the PubMed API.
 
 ## Why this library?
 The PubMed API is not very well documented and querying it in a performant way is too complicated and time consuming for researchers. This wrapper provides access to the API in a consistent, readable and performant way.
+
+## Requirements
+- Python 3.10+
+
+## Installation
+```bash
+pip install pymed
+```
+
+If you use uv:
+```bash
+uv add pymed
+```
 
 ## Features
 This library takes care of the following for you:
@@ -13,13 +26,44 @@ This library takes care of the following for you:
 - Batching of requests for better performance
 - Parsing and cleaning of the retrieved articles
 
-## Examples
-For full (working) examples have a look at the `examples/` folder in this repository. In essence you only need to import the `PubMed` class, instantiate it, and use it to query:
+## Quickstart
+In essence you only need to import the `PubMed` class, instantiate it, and use it to query:
 
 ```python
 from pymed import PubMed
 pubmed = PubMed(tool="MyTool", email="my@email.address")
-results = pubmed.query("Some query", max_results=500)
+results = pubmed.query("Some query", max_results=10)
+for article in results:
+    print(article.pubmed_id, article.title)
+```
+
+## Configuration
+- `tool` and `email` are strongly recommended by NCBI for identification.
+- `timeout` (seconds) controls request timeouts; default is 30.
+- `max_retries` and `backoff_factor` control retries for 5xx errors.
+- `max_results` limits results; set `-1` to request all available IDs.
+
+```python
+from pymed import PubMed
+
+pubmed = PubMed(tool="MyTool", email="my@email.address", timeout=20, max_retries=2)
+results = pubmed.query("cancer[Title]", max_results=-1)
+```
+
+## Examples
+For full working examples see `examples/`.
+
+## Development (uv)
+Common project commands using uv:
+
+Type checking is done with `ty`.
+
+```bash
+uv sync --group dev
+uv run pytest -v --cov=pymed --cov-report=term-missing
+ruff check .
+ty check
+uv build
 ```
 
 ## Notes on the API
