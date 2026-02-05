@@ -1,16 +1,54 @@
 [project]
 name = "pymed"
-version = "0.9.0"
+version = "0.8.9"
 description = "PyMed is a Python library that provides access to PubMed through the PubMed API."
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = [
-    "pytest-cov>=7.0.0",
-    "requests>=2.32.5",
+license = { file = "LICENCE" }
+authors = [{ name = "Adam Kelly", email = "arkelly2@medicine.wisc.edu" }]
+keywords = ["pubmed", "pmc", "biomed", "ncbi"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Utilities",
 ]
+dependencies = ["requests>=2.32.5"]
+
+[project.urls]
+Homepage = "https://github.com/uwdem/pymed"
+Repository = "https://github.com/uwdem/pymed"
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=9.0.1",
+  "ruff>=0.14.6",
+  "responses>=0.25.8",
+  "pytest-cov>=7.0.0",
+]
+test = ["pytest>=9.0.1", "pytest-cov>=7.0.0", "responses>=0.25.8"]
 
 [dependency-groups]
-dev = ["pytest>=9.0.1", "ruff>=0.14.6"]
+dev = [
+  "pytest>=9.0.1",
+  "ruff>=0.14.6",
+  "responses>=0.25.8",
+  "pytest-cov>=7.0.0",
+]
+test = ["pytest>=9.0.1", "pytest-cov>=7.0.0", "responses>=0.25.8"]
+
+[build-system]
+requires = ["uv_build>=0.9.29,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "pymed"
+module-root = "src"
 
 
 [tool.ruff]
