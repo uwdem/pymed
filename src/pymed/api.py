@@ -81,6 +81,8 @@ class PubMed:
     _rate_limit: int = 3
     _requests_made: list[datetime.datetime] = field(default_factory=list)
     timeout: float = 30.0
+    max_retries: int = 3
+    backoff_factor: float = 0.5
     _session: requests.Session | None = field(default=None, init=False, repr=False)
     parameters: dict[str, Any] = field(
         default_factory=lambda: {
@@ -217,24 +219,44 @@ class PubMed:
 
         # Make the request to PubMed
         session = self._get_session()
-        response: requests.Response = session.get(
-            f"{BASE_URL}{url}", params=parameters, timeout=self.timeout
-        )
-
-        # Check for any errors
-        response.raise_for_status()
-
-        # Add this request to the list of requests made
-        self._requests_made.append(datetime.datetime.now())
-
-        # Return the response
-        if output == "json":
+        attempt = 0
+        while True:
             try:
-                return response.json()
-            except ValueError:
-                logger.warning("Failed to decode JSON response", exc_info=True)
-                return {}
-        return response.text
+                response: requests.Response = session.get(
+                    f"{BASE_URL}{url}", params=parameters, timeout=self.timeout
+                )
+
+                # Check for any errors
+                response.raise_for_status()
+
+                # Add this request to the list of requests made
+                self._requests_made.append(datetime.datetime.now())
+
+                # Return the response
+                if output == "json":
+                    try:
+                        return response.json()
+                    except ValueError:
+                        logger.warning("Failed to decode JSON response", exc_info=True)
+                        return {}
+                return response.text
+            except requests.HTTPError as exc:
+                status_code = exc.response.status_code if exc.response else None
+                if (
+                    status_code is not None
+                    and 500 <= status_code < 600
+                    and attempt < self.max_retries
+                ):
+                    wait_seconds = self.backoff_factor * (2**attempt)
+                    logger.warning(
+                        "Server error %s from PubMed; retrying in %.1fs",
+                        status_code,
+                        wait_seconds,
+                    )
+                    time.sleep(wait_seconds)
+                    attempt += 1
+                    continue
+                raise
 
     def _get_articles(
         self, article_ids: list[str]

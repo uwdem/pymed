@@ -40,12 +40,13 @@ for article in results:
 ## Configuration
 - `tool` and `email` are strongly recommended by NCBI for identification.
 - `timeout` (seconds) controls request timeouts; default is 30.
+- `max_retries` and `backoff_factor` control retries for 5xx errors.
 - `max_results` limits results; set `-1` to request all available IDs.
 
 ```python
 from pymed import PubMed
 
-pubmed = PubMed(tool="MyTool", email="my@email.address", timeout=20)
+pubmed = PubMed(tool="MyTool", email="my@email.address", timeout=20, max_retries=2)
 results = pubmed.query("cancer[Title]", max_results=-1)
 ```
 

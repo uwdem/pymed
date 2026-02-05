@@ -4,6 +4,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import pytest
+import requests
 import responses
 
 from pymed.api import BASE_URL, PubMed
@@ -197,6 +198,42 @@ def test_get_returns_empty_dict_on_bad_json(monkeypatch, caplog):
 
     assert response == {}
     assert "Failed to decode JSON response" in caplog.text
+
+
+def test_get_retries_on_server_error(monkeypatch):
+    pubmed = PubMed(max_retries=1, backoff_factor=0)
+
+    class ErrorResponse:
+        status_code = 500
+
+        def raise_for_status(self):
+            raise requests.HTTPError("boom", response=self)
+
+    class OkResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"ok": True}
+
+    class FakeSession:
+        def __init__(self):
+            self.calls = 0
+
+        def get(self, *args, **kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                return ErrorResponse()
+            return OkResponse()
+
+    fake_session = FakeSession()
+    monkeypatch.setattr(pubmed, "_get_session", lambda: fake_session)
+    monkeypatch.setattr("pymed.api.time.sleep", lambda *_: None)
+
+    response = pubmed._get(url="/entrez/eutils/esearch.fcgi", parameters={})
+
+    assert response == {"ok": True}
+    assert fake_session.calls == 2
 
 
 def test_get_article_ids_returns_empty_on_non_dict(monkeypatch, caplog):
